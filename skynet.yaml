@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skynet
+  namespace: jitsi
+  labels:
+    app.kubernetes.io/name: skynet
+    app.kubernetes.io/component: transcription
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: skynet
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: skynet
+        app.kubernetes.io/component: transcription
+    spec:
+      securityContext:
+        fsGroup: 1001
+        runAsUser: 1001
+        runAsGroup: 1001
+        runAsNonRoot: true
+      containers:
+        - name: skynet
+          image: jitsi/skynet:2026.4.1-cpu-amd64
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: ENABLED_MODULES
+              value: streaming_whisper
+            - name: BYPASS_AUTHORIZATION
+              value: "true"
+            - name: ENABLE_METRICS
+              value: "false"
+            - name: DISABLE_LLM_HEALTH_CHECK
+              value: "true"
+            - name: LOG_LEVEL
+              value: INFO
+            - name: SKYNET_PORT
+              value: "8000"
+            - name: WHISPER_MODEL_NAME
+              value: tiny.en
+            - name: WHISPER_DEVICE
+              value: cpu
+            - name: WHISPER_COMPUTE_TYPE
+              value: int8
+            - name: WHISPER_MODEL_PATH
+              value: /models/streaming-whisper
+          volumeMounts:
+            - name: models
+              mountPath: /models
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: models
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: skynet
+  namespace: jitsi
+  labels:
+    app.kubernetes.io/name: skynet
+    app.kubernetes.io/component: transcription
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: skynet
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+      protocol: TCP
