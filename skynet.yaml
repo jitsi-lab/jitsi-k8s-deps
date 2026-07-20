@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: skynet
-  namespace: jitsi
+  namespace: demo
   labels:
     app.kubernetes.io/name: skynet
     app.kubernetes.io/component: transcription
